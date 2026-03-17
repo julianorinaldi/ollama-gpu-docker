@@ -37,11 +37,11 @@ add-llm:
 	$(COMPOSE_EXEC) ollama ollama run $(MODEL)
 
 bash-ollama:
-	$(COMPOSE_EXEC) -it ollama bash
+	$(COMPOSE_EXEC) ollama bash
 
 bash-sd:
-	$(COMPOSE_EXEC) -it stable-diffusion bash
+	$(COMPOSE_EXEC) stable-diffusion bash
 
 bash-webui:
-	$(COMPOSE_EXEC) -it open-webui bash
+	$(COMPOSE_EXEC) open-webui bash
 	

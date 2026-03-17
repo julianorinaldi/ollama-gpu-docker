@@ -16,27 +16,6 @@ services:
     volumes:
       - ./volumes/ollama:/root/.ollama
 
-  stable-diffusion:
-      image: ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda
-      container_name: stable-diffusion
-      ports:
-        - "7860:7860"   # Interface/Proxy Caddy
-        - "17860:17860" # Possível porta direta da API
-        - "8888:8888"   # Porta comum em ai-dock para Jupyter/Config
-      environment:
-        - WEBUI_ARGS=--api --listen --xformers
-        # Algumas imagens ai-dock exigem desativar a autenticação para uso em rede local
-        - AUTH_ENABLE=false 
-      deploy:
-        resources:
-          reservations:
-            devices:
-              - driver: nvidia
-                count: all
-                capabilities: [gpu]
-      volumes:
-        - ./volumes/sd-data:/workspace
-
   open-webui:
       image: ghcr.io/open-webui/open-webui:main
       container_name: open-webui
@@ -48,5 +27,4 @@ services:
         - ./volumes/open-webui:/app/backend/data
       depends_on:
         - ollama
-        - stable-diffusion      
 

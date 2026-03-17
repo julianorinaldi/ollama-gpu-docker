@@ -1,5 +1,5 @@
 # --- Variáveis ---
-COMPOSE_RUN := docker compose run
+COMPOSE_RUN := docker-compose
 
 # --- Cores ---
 BLUE   := \033[1;34m
@@ -13,26 +13,26 @@ help: ## Lista todos os comandos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-15s$(RESET) %s\n", $$1, $$2}'
 
 up: ## Inicia os containers em background (Qdrant, Ollama, App)
-	docker compose up -d
+	$(COMPOSE_RUN) up -d
 	@echo "$(GREEN)Serviços iniciados! Use 'make status' para conferir.$(RESET)"
 
 down: ## Para todos os serviços e remove os containers
-	docker compose down
+	$(COMPOSE_RUN) down
 
 restart: down up ## Reinicia todos os serviços
 
 status: ## Exibe o estado dos containers
-	docker compose ps
+	$(COMPOSE_RUN) ps
 
 logs: ## Mostra os logs em tempo real
-	docker compose logs -f
+	$(COMPOSE_RUN) logs -f
 
 bash-ollama:
-	docker compose exec -it ollama bash
+	$(COMPOSE_RUN) exec -it ollama bash
 
 bash-sd:
-	docker compose exec -it stable-diffusion bash
+	$(COMPOSE_RUN) exec -it stable-diffusion bash
 
 bash-webui:
-	docker compose exec -it open-webui bash
+	$(COMPOSE_RUN) exec -it open-webui bash
 	

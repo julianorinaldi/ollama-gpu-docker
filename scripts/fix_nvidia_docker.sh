@@ -1,29 +1,34 @@
 #!/bin/bash
 
-# Aborta o script em caso de erro
+# Aborta em caso de erro
 set -e
 
-echo "--- Iniciando a configuração do NVIDIA Container Toolkit ---"
+echo "--- Iniciando instalação de drivers NVIDIA no Ubuntu ---"
 
-# 1. Adiciona o repositório oficial da NVIDIA
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
-  && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+# 1. Atualiza o sistema
+sudo apt update && sudo apt upgrade -y
 
-# 2. Atualiza a lista de pacotes
-sudo apt-get update
+# 2. Instala dependências comuns
+sudo apt install -y build-essential gcc make dkms
 
-# 3. Instala o NVIDIA Container Toolkit
-sudo apt-get install -y nvidia-container-toolkit
+# 3. Detecta a versão recomendada do driver para sua GPU
+RECOMMENDED_DRIVER=$(ubuntu-drivers devices | grep "recommended" | awk '{print $3}')
 
-sudo ubuntu-drivers autoinstall
+if [ -z "$RECOMMENDED_DRIVER" ]; then
+    echo "ERRO: Nenhum driver recomendado encontrado. Verifique se a GPU está bem conectada."
+    exit 1
+fi
 
-# 4. Configura o Docker para usar o driver da NVIDIA
-sudo nvidia-ctk runtime configure --runtime=docker
+echo "--- Instalando o driver recomendado: $RECOMMENDED_DRIVER ---"
 
-# 5. Reinicia o serviço do Docker para aplicar as mudanças
-sudo systemctl restart docker
+# 4. Instala o driver automaticamente
+sudo apt install -y $RECOMMENDED_DRIVER
 
-echo "--- Configuração concluída com sucesso! ---"
-echo "Tente rodar o seu docker-compose up novamente."
+echo "--- Instalação concluída! ---"
+echo "IMPORTANTE: Você PRECISA reiniciar o servidor para carregar o driver."
+echo "Após reiniciar, rode 'nvidia-smi' para confirmar."
+echo "Deseja reiniciar agora? (s/n)"
+read response
+if [ "$response" == "s" ]; then
+    sudo reboot
+fi

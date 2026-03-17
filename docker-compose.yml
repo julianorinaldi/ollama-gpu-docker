@@ -4,6 +4,12 @@ services:
     container_name: ollama
     env_file:
       - .env
+    environment:
+      # Para permitir acesso por outros PCs na rede (LAN),
+      # o Ollama precisa escutar em 0.0.0.0 dentro do container.
+      # Observação: o .env deste repo define OLLAMA_HOST para o Open WebUI
+      # (ex.: http://ollama:11434), então fazemos override aqui.
+      - OLLAMA_HOST=0.0.0.0:11434
     ports:
       - "11434:11434"
     deploy:

@@ -4,6 +4,10 @@ services:
     container_name: ollama
     env_file:
       - .env
+    environment:
+      # Permite que outros PCs na LAN acessem a API do Ollama.
+      # Faz override do OLLAMA_HOST do .env (que é voltado ao Open WebUI).
+      - OLLAMA_HOST=0.0.0.0:11434
     ports:
       - "11434:11434"
     deploy:

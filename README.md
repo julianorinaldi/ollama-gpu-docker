@@ -233,4 +233,62 @@ Principais alvos:
 - **Stable Diffusion WebUI**: `http://localhost:7860`
 - **API Ollama**: `http://localhost:11434`
 
+---
+
+## Usar o Ollama a partir de outro PC na rede (LAN)
+
+Se você já consegue abrir o Open WebUI em `http://192.168.100.105:3000`, o próximo passo é expor e testar **a API do Ollama** na mesma máquina.
+
+### 1) Garantir que o Ollama está escutando na rede
+
+Este repositório aplica o `.env` também no container `ollama`. Como o `.env` costuma definir `OLLAMA_HOST` para o **Open WebUI** (ex.: `http://ollama:11434`), o `docker-compose` faz override no serviço `ollama` para:
+
+- `OLLAMA_HOST=0.0.0.0:11434`
+
+Após alterar/atualizar, reinicie:
+
+```bash
+make restart
+```
+
+### 2) Testar do outro PC (recomendado: `curl`)
+
+No **outro PC** (cliente), rode:
+
+1) Ver modelos disponíveis (se der resposta, a rede está OK):
+
+```bash
+curl -s "http://192.168.100.105:11434/api/tags"
+```
+
+2) Fazer uma geração simples (streaming):
+
+```bash
+curl -N "http://192.168.100.105:11434/api/generate" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"mistral-nemo","prompt":"Responda em uma frase: o que é o Ollama?"}'
+```
+
+Se o modelo ainda não estiver baixado, você pode baixar pelo servidor (na máquina do Ollama):
+
+```bash
+make add-llm
+```
+
+### 3) Se não responder: liberar a porta no firewall
+
+Na **máquina do servidor** (192.168.100.105), se você usa UFW:
+
+```bash
+sudo ufw allow 11434/tcp
+sudo ufw status
+```
+
+### 4) Configurar um app/cliente para usar o Ollama remoto
+
+- **Endpoint**: `http://192.168.100.105:11434`
+- **Modelos**: use o nome que aparecer no `/api/tags` (ex.: `mistral-nemo`)
+
+Dica: o Open WebUI já usa o backend `ollama` via rede interna do Docker. Para consumir de fora (outro PC), sempre use o IP da máquina + porta `11434`.
+
 Com isso, qualquer pessoa consegue entender rapidamente o propósito dos containers, como subir o ambiente e onde acessar cada serviço.

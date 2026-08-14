@@ -1,0 +1,7 @@
+# volumes/ pertence ao root: sem isto o build morre em "no permission to read".
+volumes/
+# models/ tem vários GB de .safetensors — mandar isso como contexto de build
+# seria puro desperdício, os modelos entram por bind mount em tempo de execução.
+models/
+saida/
+.git/

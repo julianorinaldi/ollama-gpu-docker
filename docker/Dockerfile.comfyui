@@ -1,0 +1,24 @@
+FROM pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
+
+# O requirements.txt do ComfyUI pede "torch" sem versão, então o pip mantém o
+# que a base já traz em vez de baixar outros GB de wheel — desde que a base
+# seja nova o bastante.
+#
+# Não use a base 2.5.1 (a do container-generate-video-ai): o comfy_kitchen
+# registra um custom op com assinatura `kernel_size: list[int]`, e o
+# infer_schema do torch 2.5 só aceita `typing.List[int]`. O container sobe,
+# quebra no import e nunca abre a porta 8188.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git /opt/ComfyUI
+
+WORKDIR /opt/ComfyUI
+RUN pip install --no-cache-dir -r requirements.txt
+
+EXPOSE 8188
+
+# --listen 0.0.0.0 é obrigatório: sem isso o ComfyUI escuta só em 127.0.0.1
+# dentro do container e o mapeamento de porta não alcança nada.
+CMD ["python3", "main.py", "--listen", "0.0.0.0", "--port", "8188"]

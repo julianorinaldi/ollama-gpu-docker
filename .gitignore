@@ -1,1 +1,4 @@
 volumes/
+models/
+saida/
+.hf-cache/

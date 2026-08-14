@@ -1,13 +1,17 @@
-Ollama + Stable Diffusion + Open WebUI com GPU
-=============================================
+Ollama + ComfyUI + Open WebUI com GPU
+=====================================
 
 Este projeto fornece um ambiente Docker pronto para uso com:
 
 - **Ollama** – servidor de modelos de linguagem (LLMs) com suporte a GPU.
-- **Stable Diffusion (AI-Dock WebUI)** – geração de imagens com GPU.
-- **Open WebUI** – interface web unificada para conversar com LLMs e, opcionalmente, integrar geração de imagens.
+- **ComfyUI** – geração de imagens com GPU, com interface e API HTTP.
+- **Open WebUI** – interface web unificada para conversar com LLMs e gerar imagens.
 
-Tudo é orquestrado via `docker-compose` e um `Makefile` simples para facilitar o dia a dia.
+Tudo é orquestrado via `docker compose` e um `Makefile` simples para facilitar o dia a dia.
+
+> **Atenção aos dois arquivos de compose.** O `docker-compose.yml` (padrão) sobe
+> **só** Ollama + Open WebUI, **sem** geração de imagem. Quem tem imagem é o
+> `docker-compose-sd.yml` — use `make up-sd`.
 
 ---
 
@@ -38,27 +42,26 @@ Arquivo: `docker-compose.yml`
 - **Propósito**:
   - Servir modelos de linguagem via API (HTTP) com aceleração por GPU.
 
-### Serviço `stable-diffusion`
+### Serviço `comfyui`
 
-- **Imagem**: `ghcr.io/ai-dock/stable-diffusion-webui:latest-cuda`
-- **Portas expostas**:
-  - `7860:7860` – interface web principal / proxy.
-  - `17860:17860` – possível porta de API direta.
-  - `8888:8888` – geralmente Jupyter/config nas imagens AI-Dock.
-- **Variáveis de ambiente principais**:
-  - `WEBUI_ARGS=--api --listen --xformers`
-    - `--api`: habilita a API HTTP.
-    - `--listen`: escuta em `0.0.0.0` (acessível de fora do container).
-    - `--xformers`: ativa otimizações para GPU.
-  - `AUTH_ENABLE=false`
-    - Desativa autenticação (adequado para uso em rede local / ambiente controlado).
-- **Volume**:
-  - `./volumes/sd-data:/workspace`
-  - Persiste modelos, configurações e imagens geradas.
-- **GPU**:
-  - Usa GPUs NVIDIA com as mesmas reservas que o serviço `ollama`.
-- **Propósito**:
-  - Interface e API de Stable Diffusion para geração de imagens usando GPU.
+- **Imagem**: build local (`docker/Dockerfile.comfyui`), a partir de
+  `pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime`.
+- **Porta exposta**: `8188:8188` – interface web e API HTTP (`/prompt`).
+- **Volumes**:
+  - `./models/checkpoints` → os `.safetensors`. Fica **fora** de `volumes/`
+    porque `volumes/` pertence ao root e este diretório precisa ser gravável
+    pelo usuário que baixa os modelos.
+  - `./saida` → imagens geradas.
+- **GPU**: mesmas reservas do serviço `ollama`.
+
+Substituiu o antigo `ghcr.io/ai-dock/stable-diffusion-webui` (AUTOMATIC1111),
+que nunca chegou a subir aqui — `volumes/sd-data` jamais foi criado. O ComfyUI
+é o que segue mantido, roda SDXL folgado em 12 GB e tem API HTTP própria, o que
+permite gerar em lote por script sem passar pela interface.
+
+**Não use uma base de torch antiga** neste Dockerfile: o `comfy_kitchen` do
+ComfyUI registra um custom op com assinatura `list[int]`, que o `infer_schema`
+do torch 2.5 rejeita. O container sobe, estoura no import e nunca abre a 8188.
 
 ### Serviço `open-webui`
 
@@ -89,10 +92,13 @@ Principais alvos:
   Lista todos os comandos disponíveis com uma breve descrição.
 
 - **`make up`**  
-  - Sobe todos os serviços definidos em `docker-compose.yml` em **background**.
+  - Sobe apenas Ollama + Open WebUI (`docker-compose.yml`), **sem** geração de imagem.
+
+- **`make up-sd`**  
+  - Sobe a stack completa (`docker-compose-sd.yml`), construindo o ComfyUI se preciso.
   - Após executar, você pode:
     - Acessar o **Open WebUI** em `http://localhost:3000`.
-    - Acessar a interface do **Stable Diffusion WebUI** (normalmente em `http://localhost:7860`).
+    - Acessar o **ComfyUI** em `http://localhost:8188`.
     - Consumir a **API do Ollama** em `http://localhost:11434`.
 
 - **`make down`**  
@@ -112,7 +118,7 @@ Principais alvos:
   - Abre um shell bash **dentro do container** `ollama`.
 
 - **`make bash-sd`**  
-  - Abre um shell bash **dentro do container** `stable-diffusion`.
+  - Abre um shell bash **dentro do container** `comfyui`.
 
 - **`make bash-webui`**  
   - Abre um shell bash **dentro do container** `open-webui`.
@@ -225,13 +231,49 @@ Principais alvos:
 
 ## Resumo rápido
 
-- **Subir tudo**: `make up`
+- **Subir tudo (com imagem)**: `make up-sd`
 - **Ver status**: `make status`
 - **Ver logs**: `make logs`
 - **Parar tudo**: `make down`
 - **Open WebUI**: `http://localhost:3000`
-- **Stable Diffusion WebUI**: `http://localhost:7860`
+- **ComfyUI**: `http://localhost:8188`
 - **API Ollama**: `http://localhost:11434`
+
+---
+
+## Modelos de imagem
+
+Os checkpoints **não** são versionados (`models/` está no `.gitignore`). Baixe
+o que for usar para `models/checkpoints/`:
+
+```bash
+cd models/checkpoints
+curl -L -O https://huggingface.co/cagliostrolab/animagine-xl-4.0/resolve/main/animagine-xl-4.0-opt.safetensors
+```
+
+Comparação feita em 14/08/2026 numa RTX 3060 12 GB, gerando cartas de
+personagem para o jujutsu-kaisen.com — mesmo prompt, mesma seed:
+
+| modelo | tamanho | veredito |
+|---|---|---|
+| **Animagine XL 4.0** | 6,5 GB | **Escolhido.** Arte limpa, respeita a paleta pedida, não inventa moldura nem texto. |
+| NoobAI-XL v1.1 | 6,6 GB | Composição mais dramática, mas desenha moldura de carta, texto embolado e marca d'água falsa. Atrapalha aqui, porque a moldura da carta é do CSS. |
+| SDXL base 1.0 | 6,6 GB | Não conhece os personagens. Serve para cenário, não para personagem. |
+
+O que faz esses modelos valerem a pena não é a qualidade geral: é o
+**vocabulário Danbooru**. `gojou satoru` não é descrição, é um identificador que
+o modelo aprendeu — devolve o personagem certo, com a venda certa. Escrever
+"Satoru Gojo" em inglês corrente devolve um sujeito genérico de cabelo branco.
+Por isso os scripts em `scripts/` carregam um mapa de tags separado: o JSON do
+site guarda o nome de exibição em pt-BR, que não serve como prompt.
+
+Duas armadilhas que custaram uma leva inteira:
+
+- **Ausência se pede no negativo.** "sem brilho" no prompt positivo produziu
+  exatamente brilho — o modelo lê a palavra e desenha. Para a Restrição
+  Celestial (Toji, Maki) o "no glow" precisa estar no `negative_prompt`.
+- **O CLIP corta em 77 tokens.** Como as tags de qualidade ficam no fim do
+  prompt, são elas que se perdem. Prompt curto não é estilo, é requisito.
 
 ---
 

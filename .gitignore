@@ -3,3 +3,6 @@ models/
 saida/
 .hf-cache/
 __pycache__/
+# Clone de upstream, reproduzível pelo comando no README. Versionar aqui só
+# criaria um repositório dentro do outro.
+custom_nodes/

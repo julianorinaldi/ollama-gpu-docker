@@ -54,7 +54,15 @@ services:
       - ./models/text_encoders:/opt/ComfyUI/models/text_encoders
       - ./models/loras:/opt/ComfyUI/models/loras
       - ./models/vae:/opt/ComfyUI/models/vae
+      # IPAdapter: condicionamento por IMAGEM de referência, em vez de só por
+      # texto. São dois arquivos e eles não se substituem — o clip_vision lê a
+      # imagem, o ipadapter injeta o que foi lido no modelo.
+      - ./models/clip_vision:/opt/ComfyUI/models/clip_vision
+      - ./models/ipadapter:/opt/ComfyUI/models/ipadapter
       - ./saida:/opt/ComfyUI/output
+      # Montado no subdiretório, e não em custom_nodes/ inteiro: montar o pai
+      # esconderia o que o próprio ComfyUI instala ali.
+      - ./custom_nodes/ComfyUI_IPAdapter_plus:/opt/ComfyUI/custom_nodes/ComfyUI_IPAdapter_plus
     restart: unless-stopped
 
   open-webui:

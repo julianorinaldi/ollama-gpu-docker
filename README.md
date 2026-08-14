@@ -327,7 +327,84 @@ próprio LLM:
 
 ---
 
-## Usar o Ollama a partir de outro PC na rede (LAN)
+## IPAdapter: condicionar por imagem, não por texto
+
+Instalado em 14/08/2026 para o projeto `livro-infantil`, que precisa do mesmo
+personagem em dezenas de cenas diferentes.
+
+### O problema que ele resolve
+
+Descrever um personagem por texto tem teto. Ao afinar o Boi da Cara Preta, cada
+correção comprava um erro novo: travar o chifre soltava a cor do corpo, travar
+a cor do corpo soltava o focinho. Não é falta de capricho na descrição — é que
+o prompt vira uma lista de exigências que disputam peso entre si, e o
+fatiamento em blocos de 75 tokens (seção acima) faz as travas do fim
+conversarem mal com as do começo.
+
+O IPAdapter troca o canal: em vez de *descrever* o personagem, você entrega uma
+**imagem de referência** e ele injeta essa aparência direto na atenção do
+modelo. O texto volta a ser só o que ele é bom em dizer — a cena, a pose, o
+enquadramento.
+
+### As duas peças
+
+Não se substituem, e é fácil confundir:
+
+| arquivo | pasta | o que faz |
+|---|---|---|
+| `CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors` | `models/clip_vision/` | **lê** a imagem de referência e vira vetor |
+| `ip-adapter-plus_sdxl_vit-h.safetensors` | `models/ipadapter/` | **injeta** esse vetor nas camadas de atenção do SDXL |
+
+O sufixo `_vit-h` do segundo arquivo não é enfeite: ele diz qual encoder o
+adapter espera. Casar um adapter `vit-h` com um clip_vision `vit-g` roda sem
+erro e produz lixo silencioso.
+
+Só valem para **SDXL** — Animagine, Illustrious, NoobAI, NetaYume. Anima e
+Z-Image têm outra arquitetura e ignoram esses arquivos.
+
+### Instalação (o que foi feito, e como refazer)
+
+```bash
+# 1. o pacote de nós (não tem requirements.txt; insightface só seria preciso
+#    para os modelos FaceID, que não usamos)
+git clone --depth 1 https://github.com/cubiq/ComfyUI_IPAdapter_plus.git \
+  custom_nodes/ComfyUI_IPAdapter_plus
+
+# 2. os dois modelos
+mkdir -p models/clip_vision models/ipadapter
+curl -L -o models/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors \
+  https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors
+curl -L -o models/ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors \
+  https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors
+
+# 3. subir de novo para pegar os volumes novos
+make up-sd
+```
+
+`custom_nodes/` e `models/` estão no `.gitignore` — o que fica versionado é o
+comando acima, não os gigabytes.
+
+O `docker-compose-sd.yml` monta `ComfyUI_IPAdapter_plus` **no subdiretório**, e
+não `custom_nodes/` inteiro: montar o diretório pai esconderia o que o próprio
+ComfyUI instala ali.
+
+### Conferir se subiu
+
+```bash
+curl -s http://localhost:8188/object_info | grep -o 'IPAdapter[A-Za-z]*' | sort -u
+```
+
+Sem saída, o pacote não carregou — o motivo aparece no `make logs`.
+
+### O peso (`weight`)
+
+O parâmetro que decide quanto da referência entra. Na prática:
+
+- `0.5–0.7` — pega a paleta e o clima, deixa a cena livre. É o ponto de partida.
+- `0.8–1.0` — copia o personagem fielmente, mas começa a arrastar junto a pose
+  e o fundo da referência, que é justamente o que não se quer quando a graça é
+  mudar de cena.
+- acima de `1.0` — a imagem satura e derrete.
 
 Se você já consegue abrir o Open WebUI em `http://192.168.100.105:3000`, o próximo passo é expor e testar **a API do Ollama** na mesma máquina.
 

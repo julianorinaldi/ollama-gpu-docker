@@ -2,3 +2,4 @@ volumes/
 models/
 saida/
 .hf-cache/
+__pycache__/

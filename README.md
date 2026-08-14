@@ -256,9 +256,27 @@ personagem para o jujutsu-kaisen.com — mesmo prompt, mesma seed:
 
 | modelo | tamanho | veredito |
 |---|---|---|
-| **Animagine XL 4.0** | 6,5 GB | **Escolhido.** Arte limpa, respeita a paleta pedida, não inventa moldura nem texto. |
+| **Animagine XL 4.0** | 6,5 GB | Arte limpa, respeita a paleta, não inventa moldura. |
 | NoobAI-XL v1.1 | 6,6 GB | Composição mais dramática, mas desenha moldura de carta, texto embolado e marca d'água falsa. Atrapalha aqui, porque a moldura da carta é do CSS. |
 | SDXL base 1.0 | 6,6 GB | Não conhece os personagens. Serve para cenário, não para personagem. |
+
+### Segunda rodada — 14/08/2026, arquiteturas novas
+
+O SDXL é de 2023 e usa CLIP. Em 2026 apareceu uma geração de modelos com
+encoder LLM. Rodei todos pela mesma bancada (`scripts/comfy_bancada.py`),
+mesmos 4 personagens, mesma seed, cada um com os parâmetros do próprio autor:
+
+| modelo | unet | s/imagem | veredito |
+|---|---|---|---|
+| **NetaYume Lumina v4** | 9,9 GB | ~85s | **Escolhido.** Único a acertar os 4 personagens, as 4 paletas e manter o mesmo enquadramento nos 4. |
+| Anima aesthetic v1.1 | 3,9 GB | ~52s | Traço chapado de cel, o mais fiel ao anime, e o único que veste o Toji certo. Mas escurece demais o Sukuna. |
+| Animagine XL 4.0 | 6,5 GB | ~25s | Continua ótimo e é 3x mais rápido. Segunda opção. |
+| Illustrious XL v2.0 | 6,5 GB | ~24s | Melhor Sukuna de todos, mas **duplicou a Nobara** mesmo com `1girl`. |
+| Z-Image Turbo | 5,8 GB | ~34s | Generalista da Alibaba. Conhece Gojo/Sukuna/Nobara, **erra o Toji**. Destilado com `cfg=1`, o que faz o **prompt negativo ser ignorado** — logo não obedece às regras de paleta. Útil para outras coisas, não para as cartas. |
+
+O enquadramento uniforme é o critério que decidiu. Numa grade de 30 cartas, um
+retrato que fecha no rosto ao lado de um plano americano quebra a leitura mais
+do que qualquer diferença de qualidade.
 
 O que faz esses modelos valerem a pena não é a qualidade geral: é o
 **vocabulário Danbooru**. `gojou satoru` não é descrição, é um identificador que
@@ -272,8 +290,40 @@ Duas armadilhas que custaram uma leva inteira:
 - **Ausência se pede no negativo.** "sem brilho" no prompt positivo produziu
   exatamente brilho — o modelo lê a palavra e desenha. Para a Restrição
   Celestial (Toji, Maki) o "no glow" precisa estar no `negative_prompt`.
-- **O CLIP corta em 77 tokens.** Como as tags de qualidade ficam no fim do
-  prompt, são elas que se perdem. Prompt curto não é estilo, é requisito.
+- **Prompt curto continua sendo melhor** — mas por qualidade, não por limite.
+  Ver a seção abaixo.
+
+### Limite de tokens: é do encoder, e a ferramenta decide se dói
+
+O CLIP do SD1.5/SDXL tem janela fixa de **77 tokens**. Isso é da arquitetura do
+modelo, não da ferramenta — mas as ferramentas lidam com o estouro de formas
+opostas:
+
+- **diffusers** (usado por `gera_amostras_jjk.py` e `gera_capa.py`) **trunca e
+  avisa**. Como as tags de qualidade ficam no fim do prompt, são justamente
+  elas que se perdem.
+- **ComfyUI fatia**: quebra em blocos de 75, codifica cada um e concatena os
+  embeddings (`comfy/sd1_clip.py`, por volta da linha 638). Nada se perde.
+
+Isso explica um falso diagnóstico: a Nobara saía com paleta amarela pelo
+diffusers e ciano correta pelo ComfyUI, **com o mesmo modelo**. O problema era
+o truncamento, não o Animagine.
+
+O fatiamento não é de graça: blocos separados não se enxergam, então uma
+relação que atravessa a fronteira é entendida pior. Prompt curto continua
+valendo.
+
+Os modelos mais novos abandonaram o CLIP e o problema some — no ComfyUI todos
+aparecem com `max_length=99999999`, ou seja, o teto passa a ser a janela do
+próprio LLM:
+
+| modelo | encoder de texto | janela |
+|---|---|---|
+| SDXL (Animagine, Illustrious, NoobAI) | CLIP ViT-L/G | 77 por bloco |
+| Anima | Qwen3-0.6B | sem teto |
+| Neta / NetaYume Lumina | Gemma-2-2B | sem teto |
+| Z-Image | Qwen3-4B | sem teto |
+| Flux.1, SD 3.5 | T5-XXL | sem teto |
 
 ---
 
